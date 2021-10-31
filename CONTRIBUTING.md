@@ -88,8 +88,8 @@ After cloning the project there are a few steps required to get the project runn
 2.  Install js dependencies.
 
     ```bash
-    yarn add browserslist
-    ( cd ecmascript/transforms; yarn install )
+    yarn
+    ( cd ecmascript/transforms; yarn )
     ```
 
 3.  Setup some environment variables which is required for tests.

@@ -45,7 +45,7 @@ Parses javascript and typescript
 
 ### `/ecmascript/transforms`
 
-Theres are three core transforms named `resolver`, `hygiene`, `fixer`. Other transforms depends on them.
+There are three core transforms named `resolver`, `hygiene`, `fixer`. Other transforms depend on them.
 
 #### `/ecmascript/transforms/src/resolver`
 
@@ -69,11 +69,11 @@ let a#0 = 1;
 }
 ```
 
-where number after `#` denotes the hygiene id. If two identifiers have same symbol but different hygiene id, it's different.
+where the number after the hash (`#`) denotes the hygiene id. If two identifiers have the same symbol but different hygiene ids, they are considered different.
 
 #### `/ecmascript/transforms/src/hygiene`
 
-Hygiene pass actually changes symbol of identifiers with same symbol but different hygiene id.
+The hygiene pass actually changes symbols of identifiers with the same symbol but different hygiene ids to different symbols.
 
 ```js
 let a#0 = 1;
@@ -105,7 +105,7 @@ let v = BinExpr {
 };
 ```
 
-(other passes generates ast like this)
+(other passes generate ast like this)
 
 is converted into
 
@@ -125,7 +125,7 @@ and printed as
 
 #### `/ecmascript/transforms/src/compat`
 
-Contains codes related to converting new generation javascript codes for old browsers.
+Contains code related to converting new generation javascript code into code understdood by older browsers.
 
 #### `/ecmascript/transforms/src/modules`
 
@@ -133,15 +133,15 @@ Contains code related to transforming es6 modules to other modules.
 
 #### `/ecmascript/transforms/src/optimization`
 
-Contains code related to making code faster on runtime. Currently only small set of optimization is implemented.
+Contains code related to making code faster on runtime. Currently only a small set of optimizations is implemented.
 
 ## Tests
 
-swc uses [official ecmascript conformance test suite called test262][test262] for testing.
+swc uses [the official ecmascript conformance test suite called test262][test262] for testing.
 
-Parser tests ensures that parsed result of test262/pass is identical with test262/pass-explicit.
+Parser tests ensure that the parsed results of test262/pass are identical with test262/pass-explicit.
 
-Codegen tests ensures that generated code is equivalent to goldened reference files located at [tests/references](ecmascript/codegen/tests/references).
+Codegen tests ensure that the generated code is equivalent to the goldened reference files located at [tests/references](ecmascript/codegen/tests/references).
 
 [enum_kind]: https://rustdoc.swc.rs/enum_kind/derive.Kind.html
 [string_enum]: https://rustdoc.swc.rs/string_enum/derive.StringEnum.html

@@ -6,11 +6,14 @@ use either::Either;
 use indexmap::IndexMap;
 use once_cell::sync::Lazy;
 use regex::Regex;
-use serde::{Deserialize, Serialize};
+use serde::{
+    de::{Unexpected, Visitor},
+    Deserialize, Deserializer, Serialize, Serializer,
+};
 use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
-    env,
+    env, fmt,
     hash::BuildHasher,
     path::{Path, PathBuf},
     rc::Rc as RustRc,
@@ -51,6 +54,66 @@ use swc_ecma_visit::Fold;
 mod tests;
 pub mod util;
 
+#[derive(Clone)]
+pub enum IsModule {
+    Bool(bool),
+    Unknown,
+}
+
+impl Default for IsModule {
+    fn default() -> Self {
+        IsModule::Bool(true)
+    }
+}
+
+impl Serialize for IsModule {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match *self {
+            IsModule::Bool(ref b) => b.serialize(serializer),
+            IsModule::Unknown => "unknown".serialize(serializer),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for IsModule {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct IsModuleVisitor;
+
+        impl<'de> Visitor<'de> for IsModuleVisitor {
+            type Value = IsModule;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a boolean or the string 'unknown'")
+            }
+
+            fn visit_bool<E>(self, b: bool) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                return Ok(IsModule::Bool(b));
+            }
+
+            fn visit_str<E>(self, s: &str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                match s {
+                    "unknown" => Ok(IsModule::Unknown),
+                    _ => Err(serde::de::Error::invalid_value(Unexpected::Str(s), &self)),
+                }
+            }
+        }
+
+        deserializer.deserialize_bool(IsModuleVisitor)
+    }
+}
+
 #[derive(Default, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ParseOptions {
@@ -59,8 +122,7 @@ pub struct ParseOptions {
     #[serde(flatten)]
     pub syntax: Syntax,
 
-    #[serde(default = "default_is_module")]
-    pub is_module: bool,
+    pub is_module: IsModule,
 
     #[serde(default)]
     pub target: JscTarget,

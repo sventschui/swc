@@ -3,7 +3,7 @@ use anyhow::{bail, Context, Error};
 use helpers::Helpers;
 use std::{collections::HashMap, env, sync::Arc};
 use swc::{
-    config::{GlobalInliningPassEnvs, InputSourceMap, JscConfig, TransformConfig},
+    config::{GlobalInliningPassEnvs, InputSourceMap, IsModule, JscConfig, TransformConfig},
     try_with_handler,
 };
 use swc_atoms::JsWord;
@@ -154,7 +154,7 @@ impl SwcLoader {
                 &handler,
                 JscTarget::Es2020,
                 Default::default(),
-                true,
+                IsModule::Unknown,
                 true,
             )?;
             let program = helpers::HELPERS.set(&helpers, || {
@@ -241,7 +241,7 @@ impl SwcLoader {
                 handler,
                 JscTarget::Es2020,
                 config.as_ref().map(|v| v.syntax).unwrap_or_default(),
-                true,
+                IsModule::Unknown,
                 true,
             );
             let program = if config.is_some() {

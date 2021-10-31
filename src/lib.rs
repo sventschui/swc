@@ -112,8 +112,8 @@ pub extern crate swc_ecmascript as ecmascript;
 
 pub use crate::builder::PassBuilder;
 use crate::config::{
-    BuiltConfig, Config, ConfigFile, InputSourceMap, JscTarget, Merge, Options, Rc, RootMode,
-    SourceMapsConfig,
+    BuiltConfig, Config, ConfigFile, InputSourceMap, IsModule, JscTarget, Merge, Options, Rc,
+    RootMode, SourceMapsConfig,
 };
 use anyhow::{bail, Context, Error};
 use atoms::JsWord;
@@ -397,7 +397,7 @@ impl Compiler {
         handler: &Handler,
         target: JscTarget,
         syntax: Syntax,
-        is_module: bool,
+        is_module: IsModule,
         parse_comments: bool,
     ) -> Result<Program, Error> {
         self.run(|| {
@@ -413,32 +413,50 @@ impl Compiler {
             );
             let mut parser = Parser::new_from(lexer);
             let mut error = false;
-            let program = if is_module {
-                let m = parser.parse_module();
 
-                for e in parser.take_errors() {
-                    e.into_diagnostic(handler).emit();
-                    error = true;
+            let program = match is_module {
+                IsModule::Bool(is_module) => {
+                    if is_module {
+                        let m = parser.parse_module();
+
+                        for e in parser.take_errors() {
+                            e.into_diagnostic(handler).emit();
+                            error = true;
+                        }
+
+                        m.map_err(|e| {
+                            e.into_diagnostic(handler).emit();
+                            Error::msg("Syntax Error")
+                        })
+                        .map(Program::Module)?
+                    } else {
+                        let s = parser.parse_script();
+
+                        for e in parser.take_errors() {
+                            e.into_diagnostic(handler).emit();
+                            error = true;
+                        }
+
+                        s.map_err(|e| {
+                            e.into_diagnostic(handler).emit();
+                            Error::msg("Syntax Error")
+                        })
+                        .map(Program::Script)?
+                    }
                 }
+                IsModule::Unknown => {
+                    let m_or_s = parser.parse_program();
 
-                m.map_err(|e| {
-                    e.into_diagnostic(handler).emit();
-                    Error::msg("Syntax Error")
-                })
-                .map(Program::Module)?
-            } else {
-                let s = parser.parse_script();
+                    for e in parser.take_errors() {
+                        e.into_diagnostic(handler).emit();
+                        error = true;
+                    }
 
-                for e in parser.take_errors() {
-                    e.into_diagnostic(handler).emit();
-                    error = true;
+                    m_or_s.map_err(|e| {
+                        e.into_diagnostic(handler).emit();
+                        Error::msg("Syntax Error")
+                    })?
                 }
-
-                s.map_err(|e| {
-                    e.into_diagnostic(handler).emit();
-                    Error::msg("Syntax Error")
-                })
-                .map(Program::Script)?
             };
 
             if error {
@@ -881,7 +899,7 @@ impl Compiler {
                 handler,
                 config.target,
                 config.syntax,
-                config.is_module,
+                IsModule::Bool(config.is_module),
                 true,
             )?;
 
@@ -966,7 +984,7 @@ impl Compiler {
 
                         ..Default::default()
                     }),
-                    true,
+                    IsModule::Bool(true),
                     true,
                 )
                 .context("failed to parse input file")?
