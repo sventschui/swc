@@ -381,8 +381,126 @@ impl Fold for Polyfills {
         m
     }
 
-    fn fold_script(&mut self, _: Script) -> Script {
-        unimplemented!("automatic polyfill for scripts")
+    fn fold_script(&mut self, mut s: Script) -> Script {
+        // let span = s.span;
+
+        let required = match self.mode {
+            None => Default::default(),
+            Some(Mode::Usage) => {
+                let mut r = match self.corejs {
+                    Version { major: 2, .. } => {
+                        let mut v = corejs2::UsageVisitor::new(self.targets);
+                        s.visit_with(&Invalid { span: DUMMY_SP } as _, &mut v);
+
+                        v.required
+                    }
+                    Version { major: 3, .. } => {
+                        let mut v =
+                            corejs3::UsageVisitor::new(self.targets, self.shipped_proposals);
+                        s.visit_with(&Invalid { span: DUMMY_SP } as _, &mut v);
+                        v.required
+                    }
+
+                    _ => unimplemented!("corejs version other than 2 / 3"),
+                };
+
+                if regenerator::is_required(&s) {
+                    r.insert("regenerator-runtime/runtime".into());
+                }
+
+                r
+            }
+            Some(Mode::Entry) => match self.corejs {
+                Version { major: 2, .. } => {
+                    let mut v = corejs2::Entry::new(self.targets, self.regenerator);
+                    s = s.fold_with(&mut v);
+                    v.imports
+                }
+
+                Version { major: 3, .. } => {
+                    let mut v = corejs3::Entry::new(self.targets, self.corejs, !self.regenerator);
+                    s = s.fold_with(&mut v);
+                    v.imports
+                }
+
+                _ => unimplemented!("corejs version other than 2 / 3"),
+            },
+        };
+        let required = required
+            .into_iter()
+            .filter(|s| !self.excludes.contains(&**s))
+            .map(|s| -> JsWord {
+                if s != "regenerator-runtime/runtime" {
+                    format!("core-js/modules/{}", s).into()
+                } else {
+                    format!("regenerator-runtime/runtime").into()
+                }
+            })
+            .chain(self.includes.iter().map(|s| {
+                if s != "regenerator-runtime/runtime" {
+                    format!("core-js/modules/{}", s).into()
+                } else {
+                    format!("regenerator-runtime/runtime").into()
+                }
+            }))
+            .collect::<Vec<_>>();
+
+        if cfg!(debug_assertions) {
+            let mut v = required.into_iter().collect::<Vec<_>>();
+            v.sort();
+            prepend_stmts(
+                &mut s.body,
+                v.into_iter().map(|src| {
+                    Stmt::Expr(ExprStmt {
+                        span: DUMMY_SP,
+                        expr: Box::new(Expr::Call(CallExpr {
+                            span: DUMMY_SP,
+                            callee: ExprOrSuper::Expr(Box::new(Expr::Ident(Ident::new(
+                                "require".into(),
+                                DUMMY_SP,
+                            )))),
+                            args: Default::default(),
+                            type_args: Default::default(),
+                        })),
+                    })
+                }),
+            );
+        } else {
+            prepend_stmts(
+                &mut s.body,
+                required.into_iter().map(|src| {
+                    Stmt::Expr(ExprStmt {
+                        span: DUMMY_SP,
+                        expr: Box::new(Expr::Call(CallExpr {
+                            span: DUMMY_SP,
+                            callee: ExprOrSuper::Expr(Box::new(Expr::Ident(Ident::new(
+                                "require".into(),
+                                DUMMY_SP,
+                            )))),
+                            args: Default::default(),
+                            type_args: Default::default(),
+                        })),
+                    })
+                }),
+            );
+        }
+
+        /*
+        s.body.retain(|item| match item {
+            ModuleItem::ModuleDecl(ModuleDecl::Import(ImportDecl {
+                src:
+                    Str {
+                        span: DUMMY_SP,
+                        value: js_word!(""),
+                        ..
+                    },
+                ..
+            })) => false,
+            _ => true,
+        });
+        */
+
+        s
     }
 }
 

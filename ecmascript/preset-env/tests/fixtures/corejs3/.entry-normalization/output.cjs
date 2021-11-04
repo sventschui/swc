@@ -1,0 +1,11 @@
+require("core-js/modules/es.symbol.async-iterator");
+require("core-js/modules/es.symbol.iterator");
+require("core-js/modules/es.array.from");
+require("core-js/modules/es.map");
+require("core-js/modules/es.object.to-string");
+require("core-js/modules/es.promise");
+require("core-js/modules/es.promise.finally");
+require("core-js/modules/es.set");
+require("core-js/modules/es.string.iterator");
+require("core-js/modules/web.dom-collections.iterator");
+require("foo/index.js");
